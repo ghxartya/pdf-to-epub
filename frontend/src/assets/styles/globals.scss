@@ -1,0 +1,40 @@
+@import '@/styles/_variables.scss';
+
+*,
+*::after,
+*::before {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+	-webkit-tap-highlight-color: transparent;
+}
+
+*::selection {
+	background-color: rgba(0, 0, 0, 0.1);
+}
+
+body {
+	background-color: $color-background;
+	overflow-x: hidden;
+
+	&::-webkit-scrollbar {
+		display: none;
+	}
+}
+
+.toast-message {
+	background: transparent !important;
+	color: $color-main !important;
+	border-radius: 0 !important;
+	box-shadow: none !important;
+	font-size: $font_size-body;
+	text-align: center;
+
+	svg {
+		fill: $color-accent;
+	}
+
+	[role='progressbar'] {
+		background: $color-accent !important;
+	}
+}

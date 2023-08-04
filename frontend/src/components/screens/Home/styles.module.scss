@@ -1,0 +1,73 @@
+@import '@/styles/_variables.scss';
+
+@keyframes AppearanceAnimation {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes LoadingAnimation {
+	from {
+		color: $color-main;
+	}
+	50% {
+		color: $color-accent;
+	}
+	to {
+		color: $color-main;
+	}
+}
+
+.section {
+	width: 100%;
+	min-height: 100dvh;
+	padding: 60px 30px;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	flex-direction: column;
+	animation: AppearanceAnimation 1s ease-in-out;
+}
+
+.title {
+	text-align: center;
+	color: $color-main;
+	font-size: $font_size-heading;
+	margin-bottom: 50px;
+}
+
+.files {
+	display: flex;
+	justify-content: center;
+	align-items: flex-end;
+	margin-bottom: 10px;
+}
+
+.icon {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	color: $color-main;
+
+	&_loading {
+		animation: LoadingAnimation 1s ease-in-out infinite;
+	}
+
+	&_active {
+		color: $color-accent;
+	}
+}
+
+.download {
+	margin-top: 20px;
+}
+
+@media screen and (max-width: 672px) {
+	.title {
+		font-size: $font_size-heading-mobile;
+		margin-bottom: 40px;
+	}
+}

@@ -1,0 +1,27 @@
+@import '@/assets/styles/_variables.scss';
+
+.label {
+	cursor: pointer;
+	width: 61px;
+	height: 85px;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	flex-direction: column;
+}
+
+.title {
+	color: $color-accent;
+	font-size: $font_size-body;
+}
+
+.icon {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	color: $color-accent;
+}
+
+.input {
+	display: none;
+}
