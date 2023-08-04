@@ -73,11 +73,14 @@ export class ConvertService {
 		const options = {
 			input: pdfFilepath,
 			output: epubFilepath,
+			prettyPrint: true,
+			unwrapFactor: 0.5,
 			cover: coverFilepath,
 			pageBreaksBefore: '//h:h1',
 			chapter: '//h:h1',
 			insertBlankLine: true,
 			insertBlankLineSize: '1',
+			baseFontSize: 10,
 			lineHeight: '12',
 			marginTop: '50',
 			marginRight: '50',
@@ -109,7 +112,7 @@ export class ConvertService {
 		try {
 			await new Promise<void>((resolve, reject) => {
 				convert(options, (err: any) => {
-					if (err) reject(new Error('Failed to convert to EPUB format.'))
+					if (err) reject(new Error('Failed to convert to EPUB format.' + err))
 					else resolve()
 				})
 			})
