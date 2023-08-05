@@ -1,38 +1,66 @@
 import { BadRequestException, Injectable } from '@nestjs/common'
 import formidable from 'formidable'
 import { IncomingMessage } from 'http'
+import pdf2html = require('pdf2html')
 import convert = require('ebook-convert')
-import crypto = require('crypto')
 import fs = require('fs')
 
 @Injectable()
 export class ConvertService {
-	private readonly uploadsDirpath = './uploads'
+	async main(request: IncomingMessage) {
+		const form = formidable()
+
+		const [_, files] = await form.parse(request)
+
+		const { pdfFile, coverFile } = this.uploadFiles(files)
+
+		const htmlFilepath = await this.convertPDFtoHTML(pdfFile)
+
+		const { options, downloadLink } = this.configureConvertToEPUB(
+			htmlFilepath,
+			pdfFile.name,
+			coverFile.path
+		)
+
+		try {
+			await new Promise<void>((resolve, reject) => {
+				convert(options, (err: any) => {
+					if (err) reject(new Error('Failed to convert to EPUB format.'))
+					else resolve()
+				})
+			})
+
+			return {
+				downloadLink
+			}
+		} catch (error) {
+			throw new BadRequestException(error.message)
+		}
+	}
 
 	private uploadFiles(files: formidable.Files) {
 		let { pdf, cover } = files
 		pdf = pdf as formidable.File[]
 		cover = cover as formidable.File[]
 
-		const pdfFilepath = this.saveFile(pdf[0], 'pdf')
-		const coverFilepath = this.saveFile(cover[0], 'cover')
+		if (!pdf || !cover)
+			throw new BadRequestException('Failed to retrieve files.')
+
+		const pdfFile = this.saveFile(pdf[0], 'pdf')
+		const coverFile = this.saveFile(cover[0], 'cover')
 
 		return {
-			pdfFilepath,
-			coverFilepath
+			pdfFile,
+			coverFile
 		}
 	}
 
-	private saveFile(file: formidable.File, type: 'pdf' | 'cover') {
-		if (type === 'pdf' && file.size > 1000000000)
-			throw new BadRequestException(
-				'The maximum allowable PDF file size is 1 GB.'
-			)
+	private readonly uploadsDirpath = './uploads'
 
-		if (type === 'cover' && file.size > 50000000)
-			throw new BadRequestException(
-				'The maximum allowable Cover file size is 50 MB.'
-			)
+	private saveFile(file: formidable.File, type: 'pdf' | 'cover') {
+		if (!fs.existsSync(this.uploadsDirpath)) fs.mkdirSync(this.uploadsDirpath)
+		if (!fs.existsSync(`${this.uploadsDirpath}/${type}`))
+			fs.mkdirSync(`${this.uploadsDirpath}/${type}`)
 
 		if (type === 'pdf' && file.mimetype !== 'application/pdf')
 			throw new BadRequestException('Invalid PDF file.')
@@ -44,84 +72,80 @@ export class ConvertService {
 		)
 			throw new BadRequestException('Invalid Cover file.')
 
-		const data = fs.readFileSync(file.filepath)
+		if (type === 'pdf' && file.size > 1000000000)
+			throw new BadRequestException(
+				'The maximum allowable PDF file size is 1 GB.'
+			)
 
+		if (type === 'cover' && file.size > 50000000)
+			throw new BadRequestException(
+				'The maximum allowable Cover file size is 50 MB.'
+			)
+
+		const data = fs.readFileSync(file.filepath)
+		const filename = file.originalFilename
 		const newFilename = file.newFilename
 		const extension = file.mimetype.split('/')[1]
 		const newFilepath = `${this.uploadsDirpath}/${type}/${newFilename}.${extension}`
 
-		try {
-			fs.writeFileSync(newFilepath, data)
-			fs.unlinkSync(file.filepath)
-		} catch {
-			try {
-				fs.mkdirSync(`${this.uploadsDirpath}/${type}`)
-				this.saveFile(file, type)
-			} catch {
-				fs.mkdirSync(this.uploadsDirpath)
-				this.saveFile(file, type)
-			}
-		}
+		fs.writeFileSync(newFilepath, data)
+		fs.unlinkSync(file.filepath)
 
-		return newFilepath
+		return {
+			path: newFilepath,
+			name: type === 'pdf' ? filename.slice(0, -4) : 'cover'
+		}
 	}
 
-	private configureConvert(pdfFilepath: string, coverFilepath: string) {
-		const id = crypto.randomBytes(16).toString('hex')
-		const epubFilepath = `${this.uploadsDirpath}/${id}.epub`
+	private async convertPDFtoHTML(pdfFile: { path: string; name: string }) {
+		if (!fs.existsSync(`${this.uploadsDirpath}/html`))
+			fs.mkdirSync(`${this.uploadsDirpath}/html`)
+		if (!fs.existsSync(`${this.uploadsDirpath}/html/thumbnail`))
+			fs.mkdirSync(`${this.uploadsDirpath}/html/thumbnail`)
+
+		const meta = await pdf2html.meta(pdfFile.path)
+		const thumbnails: string[] = []
+
+		for (let index = 1; index <= +meta['xmpTPg:NPages']; index++) {
+			const newThumbnailFilepath = `${this.uploadsDirpath}/html/thumbnail/${pdfFile.name}.${index}.png`
+
+			const thumbnailFilepath = await pdf2html.thumbnail(pdfFile.path, {
+				page: index,
+				imageType: 'png'
+			})
+
+			fs.copyFileSync(thumbnailFilepath, newThumbnailFilepath)
+
+			thumbnails.push(`./thumbnail/${pdfFile.name}.${index}.png`)
+		}
+
+		const htmlFilepath = `${this.uploadsDirpath}/html/${pdfFile.name}.html`
+		const html = `<html><head></head><body>${thumbnails
+			.map(
+				(thumbnail, index) => `<img src="${thumbnail}" alt="${index + 1}" />`
+			)
+			.join('')}</body></html>`
+		fs.writeFileSync(htmlFilepath, html)
+
+		return htmlFilepath
+	}
+
+	private configureConvertToEPUB(
+		htmlFilepath: string,
+		pdfFilename: string,
+		coverFilepath: string
+	) {
+		const epubFilepath = `${this.uploadsDirpath}/${pdfFilename}.epub`
 
 		const options = {
-			input: pdfFilepath,
+			input: htmlFilepath,
 			output: epubFilepath,
-			prettyPrint: true,
-			unwrapFactor: 0.5,
-			cover: coverFilepath,
-			pageBreaksBefore: '//h:h1',
-			chapter: '//h:h1',
-			insertBlankLine: true,
-			insertBlankLineSize: '1',
-			baseFontSize: 10,
-			lineHeight: '12',
-			marginTop: '50',
-			marginRight: '50',
-			marginBottom: '50',
-			marginLeft: '50'
+			cover: coverFilepath
 		}
 
 		return {
 			options,
-			downloadLink: epubFilepath
-		}
-	}
-
-	async main(request: IncomingMessage) {
-		const form = formidable()
-
-		const [_, files] = await form.parse(request)
-
-		if (!files.pdf || !files.cover)
-			throw new BadRequestException('Failed to retrieve files.')
-
-		const { pdfFilepath, coverFilepath } = this.uploadFiles(files)
-
-		const { options, downloadLink } = this.configureConvert(
-			pdfFilepath,
-			coverFilepath
-		)
-
-		try {
-			await new Promise<void>((resolve, reject) => {
-				convert(options, (err: any) => {
-					if (err) reject(new Error('Failed to convert to EPUB format.' + err))
-					else resolve()
-				})
-			})
-
-			return {
-				downloadLink
-			}
-		} catch (error) {
-			throw new BadRequestException(error.message)
+			downloadLink: epubFilepath.slice(1)
 		}
 	}
 }

@@ -61,9 +61,7 @@ const Home: FC = () => {
 					setIsLoading(false)
 
 					if (response.data.downloadLink)
-						setDownloadLink(
-							process.env.API_URL + response.data.downloadLink.slice(1)
-						)
+						setDownloadLink(process.env.API_URL + response.data.downloadLink)
 					else
 						toast.error('Failed to get the download link.', {
 							className: 'toast-message',
