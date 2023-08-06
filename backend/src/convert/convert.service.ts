@@ -38,7 +38,11 @@ export class ConvertService {
 		}
 	}
 
+	private readonly uploadsDirpath = './uploads'
+
 	private uploadFiles(files: formidable.Files) {
+		if (!fs.existsSync(this.uploadsDirpath)) fs.mkdirSync(this.uploadsDirpath)
+
 		let { pdf, cover } = files
 		pdf = pdf as formidable.File[]
 		cover = cover as formidable.File[]
@@ -55,10 +59,7 @@ export class ConvertService {
 		}
 	}
 
-	private readonly uploadsDirpath = './uploads'
-
 	private saveFile(file: formidable.File, type: 'pdf' | 'cover') {
-		if (!fs.existsSync(this.uploadsDirpath)) fs.mkdirSync(this.uploadsDirpath)
 		if (!fs.existsSync(`${this.uploadsDirpath}/${type}`))
 			fs.mkdirSync(`${this.uploadsDirpath}/${type}`)
 
@@ -100,31 +101,10 @@ export class ConvertService {
 	private async convertPDFtoHTML(pdfFile: { path: string; name: string }) {
 		if (!fs.existsSync(`${this.uploadsDirpath}/html`))
 			fs.mkdirSync(`${this.uploadsDirpath}/html`)
-		if (!fs.existsSync(`${this.uploadsDirpath}/html/thumbnail`))
-			fs.mkdirSync(`${this.uploadsDirpath}/html/thumbnail`)
-
-		const meta = await pdf2html.meta(pdfFile.path)
-		const thumbnails: string[] = []
-
-		for (let index = 1; index <= +meta['xmpTPg:NPages']; index++) {
-			const newThumbnailFilepath = `${this.uploadsDirpath}/html/thumbnail/${pdfFile.name}.${index}.png`
-
-			const thumbnailFilepath = await pdf2html.thumbnail(pdfFile.path, {
-				page: index,
-				imageType: 'png'
-			})
-
-			fs.copyFileSync(thumbnailFilepath, newThumbnailFilepath)
-
-			thumbnails.push(`./thumbnail/${pdfFile.name}.${index}.png`)
-		}
 
 		const htmlFilepath = `${this.uploadsDirpath}/html/${pdfFile.name}.html`
-		const html = `<html><head></head><body>${thumbnails
-			.map(
-				(thumbnail, index) => `<img src="${thumbnail}" alt="${index + 1}" />`
-			)
-			.join('')}</body></html>`
+		const html = await pdf2html.html(pdfFile.path)
+
 		fs.writeFileSync(htmlFilepath, html)
 
 		return htmlFilepath
@@ -140,7 +120,9 @@ export class ConvertService {
 		const options = {
 			input: htmlFilepath,
 			output: epubFilepath,
-			cover: coverFilepath
+			cover: coverFilepath,
+			baseFontSize: 5,
+			lineHeight: 6
 		}
 
 		return {
