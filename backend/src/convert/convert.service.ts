@@ -14,7 +14,7 @@ export class ConvertService {
 
 		const { pdfFile, coverFile } = this.uploadFiles(files)
 
-		const htmlFilepath = await this.convertPDFtoHTML(pdfFile)
+		const htmlFilepath = await this.convertPDFtoHTML(pdfFile.name, pdfFile.path)
 
 		const { options, downloadLink } = this.configureConvertToEPUB(
 			htmlFilepath,
@@ -94,16 +94,19 @@ export class ConvertService {
 
 		return {
 			path: newFilepath,
-			name: type === 'pdf' ? filename.slice(0, -4) : 'cover'
+			name:
+				type === 'pdf'
+					? filename.slice(0, -4)
+					: filename.slice(0, extension === '.jpeg' ? -5 : -4)
 		}
 	}
 
-	private async convertPDFtoHTML(pdfFile: { path: string; name: string }) {
+	private async convertPDFtoHTML(pdfFilename: string, pdfFilepath: string) {
 		if (!fs.existsSync(`${this.uploadsDirpath}/html`))
 			fs.mkdirSync(`${this.uploadsDirpath}/html`)
 
-		const htmlFilepath = `${this.uploadsDirpath}/html/${pdfFile.name}.html`
-		const html = await pdf2html.html(pdfFile.path)
+		const htmlFilepath = `${this.uploadsDirpath}/html/${pdfFilename}.html`
+		const html = await pdf2html.html(pdfFilepath)
 
 		fs.writeFileSync(htmlFilepath, html)
 
@@ -118,8 +121,8 @@ export class ConvertService {
 		const epubFilepath = `${this.uploadsDirpath}/${pdfFilename}.epub`
 
 		const options = {
-			input: htmlFilepath,
-			output: epubFilepath,
+			input: `"${htmlFilepath}"`,
+			output: `"${epubFilepath}"`,
 			cover: coverFilepath,
 			baseFontSize: 5,
 			lineHeight: 6
