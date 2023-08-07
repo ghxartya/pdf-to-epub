@@ -1,12 +1,19 @@
+import { HttpService } from '@nestjs/axios'
 import { BadRequestException, Injectable } from '@nestjs/common'
+import { AxiosResponse } from 'axios'
 import formidable from 'formidable'
 import { IncomingMessage } from 'http'
-import pdf2html = require('pdf2html')
+import {
+	IGetConversionStatusResponse,
+	IStartConversionResponse
+} from './types/convertio.interface'
 import convert = require('ebook-convert')
 import fs = require('fs')
 
 @Injectable()
 export class ConvertService {
+	constructor(private readonly httpService: HttpService) {}
+
 	async main(request: IncomingMessage) {
 		const form = formidable()
 
@@ -73,9 +80,9 @@ export class ConvertService {
 		)
 			throw new BadRequestException('Invalid Cover file.')
 
-		if (type === 'pdf' && file.size > 1000000000)
+		if (type === 'pdf' && file.size > 500000000)
 			throw new BadRequestException(
-				'The maximum allowable PDF file size is 1 GB.'
+				'The maximum allowable PDF file size is 500 MB.'
 			)
 
 		if (type === 'cover' && file.size > 50000000)
@@ -101,14 +108,83 @@ export class ConvertService {
 		}
 	}
 
+	private async startPDFtoHTMLConversion(
+		pdfFilepath: string,
+		pdfFilename: string
+	): Promise<AxiosResponse<IStartConversionResponse>> {
+		const data = fs.readFileSync(pdfFilepath)
+
+		return this.httpService.axiosRef
+			.post('https://api.convertio.co/convert', {
+				apikey: process.env.CONVERTIO_API_KEY,
+				input: 'base64',
+				file: data.toString('base64'),
+				filename: `${pdfFilename}.pdf`,
+				outputformat: 'html'
+			})
+			.catch(() => {
+				throw new BadRequestException(
+					'The request to start a PDF to HTML conversion failed.'
+				)
+			})
+	}
+
+	private async getPDFtoHTMLConversionStatus(
+		conversionId: string
+	): Promise<AxiosResponse<IGetConversionStatusResponse>> {
+		return this.httpService.axiosRef
+			.get(`https://api.convertio.co/convert/${conversionId}/status`)
+			.catch(() => {
+				throw new BadRequestException(
+					'The request to get the PDF to HTML conversion status failed.'
+				)
+			})
+	}
+
+	private async waitForPDFtoHTMLConversionOutputUrl(
+		conversionId: string
+	): Promise<string> {
+		const { data: conversion } = await this.getPDFtoHTMLConversionStatus(
+			conversionId
+		)
+
+		if (!conversion.data.output.url) {
+			await new Promise(resolve => setTimeout(resolve, 1000))
+			return this.waitForPDFtoHTMLConversionOutputUrl(conversionId)
+		}
+
+		return conversion.data.output.url
+	}
+
+	private async getResultHTMLFileContent(
+		conversionOutputUrl: string
+	): Promise<AxiosResponse<string>> {
+		return this.httpService.axiosRef
+			.get(conversionOutputUrl, { responseType: 'arraybuffer' })
+			.catch(() => {
+				throw new BadRequestException(
+					'The request to get the result HTML file content failed.'
+				)
+			})
+	}
+
 	private async convertPDFtoHTML(pdfFilename: string, pdfFilepath: string) {
 		if (!fs.existsSync(`${this.uploadsDirpath}/html`))
 			fs.mkdirSync(`${this.uploadsDirpath}/html`)
 
 		const htmlFilepath = `${this.uploadsDirpath}/html/${pdfFilename}.html`
-		const html = await pdf2html.html(pdfFilepath)
 
-		fs.writeFileSync(htmlFilepath, html)
+		const { data: conversion } = await this.startPDFtoHTMLConversion(
+			pdfFilepath,
+			pdfFilename
+		)
+
+		const conversionOutputUrl = await this.waitForPDFtoHTMLConversionOutputUrl(
+			conversion.data.id
+		)
+
+		const { data } = await this.getResultHTMLFileContent(conversionOutputUrl)
+		fs.writeFileSync(htmlFilepath, data)
 
 		return htmlFilepath
 	}
@@ -123,9 +199,7 @@ export class ConvertService {
 		const options = {
 			input: `"${htmlFilepath}"`,
 			output: `"${epubFilepath}"`,
-			cover: coverFilepath,
-			baseFontSize: 5,
-			lineHeight: 6
+			cover: coverFilepath
 		}
 
 		return {

@@ -1,9 +1,11 @@
-import { Module } from '@nestjs/common';
-import { ConvertService } from './convert.service';
-import { ConvertController } from './convert.controller';
+import { HttpModule } from '@nestjs/axios'
+import { Module } from '@nestjs/common'
+import { ConvertController } from './convert.controller'
+import { ConvertService } from './convert.service'
 
 @Module({
-  controllers: [ConvertController],
-  providers: [ConvertService]
+	imports: [HttpModule],
+	controllers: [ConvertController],
+	providers: [ConvertService]
 })
 export class ConvertModule {}
