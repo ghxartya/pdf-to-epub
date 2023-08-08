@@ -1,19 +1,12 @@
-import { HttpService } from '@nestjs/axios'
 import { BadRequestException, Injectable } from '@nestjs/common'
-import { AxiosResponse } from 'axios'
+import { PDFNet } from '@pdftron/pdfnet-node'
 import formidable from 'formidable'
 import { IncomingMessage } from 'http'
-import {
-	IGetConversionStatusResponse,
-	IStartConversionResponse
-} from './types/convertio.interface'
 import convert = require('ebook-convert')
 import fs = require('fs')
 
 @Injectable()
 export class ConvertService {
-	constructor(private readonly httpService: HttpService) {}
-
 	async main(request: IncomingMessage) {
 		const form = formidable()
 
@@ -21,9 +14,9 @@ export class ConvertService {
 
 		const { pdfFile, coverFile } = this.uploadFiles(files)
 
-		const htmlFilepath = await this.convertPDFtoHTML(pdfFile.name, pdfFile.path)
+		const htmlFilepath = await this.convertPdfToHtml(pdfFile.name, pdfFile.path)
 
-		const { options, downloadLink } = this.configureConvertToEPUB(
+		const { options, downloadLink } = this.configureConvertToEpub(
 			htmlFilepath,
 			pdfFile.name,
 			coverFile.path
@@ -108,88 +101,41 @@ export class ConvertService {
 		}
 	}
 
-	private async startPDFtoHTMLConversion(
-		pdfFilepath: string,
-		pdfFilename: string
-	): Promise<AxiosResponse<IStartConversionResponse>> {
-		const data = fs.readFileSync(pdfFilepath)
-
-		return this.httpService.axiosRef
-			.post('https://api.convertio.co/convert', {
-				apikey: process.env.CONVERTIO_API_KEY,
-				input: 'base64',
-				file: data.toString('base64'),
-				filename: `${pdfFilename}.pdf`,
-				outputformat: 'html'
-			})
-			.catch(() => {
-				throw new BadRequestException(
-					'The request to start a PDF to HTML conversion failed.'
-				)
-			})
-	}
-
-	private async getPDFtoHTMLConversionStatus(
-		conversionId: string
-	): Promise<AxiosResponse<IGetConversionStatusResponse>> {
-		return this.httpService.axiosRef
-			.get(`https://api.convertio.co/convert/${conversionId}/status`)
-			.catch(() => {
-				throw new BadRequestException(
-					'The request to get the PDF to HTML conversion status failed.'
-				)
-			})
-	}
-
-	private async waitForPDFtoHTMLConversionOutputUrl(
-		conversionId: string
-	): Promise<string> {
-		const { data: conversion } = await this.getPDFtoHTMLConversionStatus(
-			conversionId
-		)
-
-		if (!conversion.data.output.url) {
-			await new Promise(resolve => setTimeout(resolve, 1000))
-			return this.waitForPDFtoHTMLConversionOutputUrl(conversionId)
-		}
-
-		return conversion.data.output.url
-	}
-
-	private async getResultHTMLFileContent(
-		conversionOutputUrl: string
-	): Promise<AxiosResponse<string>> {
-		return this.httpService.axiosRef
-			.get(conversionOutputUrl, { responseType: 'arraybuffer' })
-			.catch(() => {
-				throw new BadRequestException(
-					'The request to get the result HTML file content failed.'
-				)
-			})
-	}
-
-	private async convertPDFtoHTML(pdfFilename: string, pdfFilepath: string) {
+	private async convertPdfToHtml(pdfFilename: string, pdfFilepath: string) {
 		if (!fs.existsSync(`${this.uploadsDirpath}/html`))
 			fs.mkdirSync(`${this.uploadsDirpath}/html`)
 
 		const htmlFilepath = `${this.uploadsDirpath}/html/${pdfFilename}.html`
 
-		const { data: conversion } = await this.startPDFtoHTMLConversion(
-			pdfFilepath,
-			pdfFilename
-		)
+		async function convert() {
+			await PDFNet.addResourceSearchPath('./')
 
-		const conversionOutputUrl = await this.waitForPDFtoHTMLConversionOutputUrl(
-			conversion.data.id
-		)
+			if (!(await PDFNet.StructuredOutputModule.isModuleAvailable())) return
 
-		const { data } = await this.getResultHTMLFileContent(conversionOutputUrl)
-		fs.writeFileSync(htmlFilepath, data)
+			const htmlOutputOptions = new PDFNet.Convert.HTMLOutputOptions()
+
+			htmlOutputOptions.setContentReflowSetting(
+				PDFNet.Convert.HTMLOutputOptions.ContentReflowSetting.e_reflow_full
+			)
+			htmlOutputOptions.setEmbedImages(true)
+
+			await PDFNet.Convert.fileToHtml(
+				pdfFilepath,
+				htmlFilepath,
+				htmlOutputOptions
+			)
+		}
+
+		try {
+			await PDFNet.runWithCleanup(convert, process.env.APRYSE_LICENSE_KEY)
+		} catch (error) {
+			throw new BadRequestException(`${error}`)
+		}
 
 		return htmlFilepath
 	}
 
-	private configureConvertToEPUB(
+	private configureConvertToEpub(
 		htmlFilepath: string,
 		pdfFilename: string,
 		coverFilepath: string
@@ -199,7 +145,14 @@ export class ConvertService {
 		const options = {
 			input: `"${htmlFilepath}"`,
 			output: `"${epubFilepath}"`,
-			cover: coverFilepath
+			cover: coverFilepath,
+			extraCss: `"*{color:#fff!important}"`,
+			pageBreaksBefore: '//h:h1',
+			chapter: '//h:h1',
+			insertBlankLine: true,
+			insertBlankLineSize: '1',
+			baseFontSize: '7',
+			lineHeight: '10'
 		}
 
 		return {
