@@ -9,10 +9,14 @@ import FilePDF from '@/ui/icons/FilePDF'
 import Plus from '@/ui/icons/Plus'
 import styles from './styles.module.scss'
 
+import CaretLeft from '@/ui/icons/CaretLeft'
+import CaretRight from '@/ui/icons/CaretRight'
 import { catchErrorMessage } from '@/utils/catch-error-message'
 import axios from 'axios'
 import clsx from 'clsx'
 import Head from 'next/head'
+import Image from 'next/legacy/image'
+import { Document, Page } from 'react-pdf'
 import { toast } from 'react-toastify'
 
 const Home: FC = () => {
@@ -20,9 +24,19 @@ const Home: FC = () => {
 	const coverRef = useRef<HTMLInputElement>(null)
 
 	const [pdfFile, setPdfFile] = useState<File | null>(null)
+	const [pdfFileBase64, setPdfFileBase64] = useState<string | null>(null)
 	const [isPdfFileValid, setIsPdfFileValid] = useState(false)
 
+	const [numPages, setNumPages] = useState<number | null>(null)
+	const [pageNumber, setPageNumber] = useState(1)
+
+	function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
+		setPageNumber(1)
+		setNumPages(numPages)
+	}
+
 	const [coverFile, setCoverFile] = useState<File | null>(null)
+	const [coverFileBase64, setCoverFileBase64] = useState<string | null>(null)
 	const [isCoverFileValid, setIsCoverFileValid] = useState(false)
 
 	const [isLoading, setIsLoading] = useState(false)
@@ -44,6 +58,26 @@ const Home: FC = () => {
 			coverFile.type !== 'image/png'
 		)
 			setIsCoverFileValid(false)
+
+		if (pdfFile) {
+			const reader = new FileReader()
+			reader.onload = event => {
+				if (event.target && typeof event.target.result === 'string') {
+					setPdfFileBase64(event.target.result)
+				}
+			}
+			reader.readAsDataURL(pdfFile)
+		}
+
+		if (coverFile) {
+			const reader = new FileReader()
+			reader.onload = event => {
+				if (event.target && typeof event.target.result === 'string') {
+					setCoverFileBase64(event.target.result)
+				}
+			}
+			reader.readAsDataURL(coverFile)
+		}
 
 		if (pdfFile && coverFile) {
 			setIsLoading(true)
@@ -88,53 +122,97 @@ const Home: FC = () => {
 			</Head>
 			<section className={styles.section}>
 				<h1 className={styles.title}>PDF to EPUB Converter</h1>
-				<div className={styles.files}>
-					<File
-						ref={pdfRef}
-						title='PDF'
-						Icon={FilePDF}
-						selected={!!pdfFile}
-						isValid={isPdfFileValid}
-						accept='.pdf'
-						onChange={event => setPdfFile(event.target.files?.[0] || null)}
-					/>
-					<span
-						className={clsx(styles.icon, {
-							[styles.icon_active]: pdfFile && coverFile
-						})}
-					>
-						<Plus />
-					</span>
-					<File
-						ref={coverRef}
-						title='Cover'
-						Icon={FileCover}
-						selected={!!coverFile}
-						isValid={isCoverFileValid}
-						accept='.jpg, .jpeg, .png'
-						onChange={event => setCoverFile(event.target.files?.[0] || null)}
-					/>
-				</div>
+				<File
+					ref={pdfRef}
+					title='PDF'
+					Icon={FilePDF}
+					selected={!!pdfFile}
+					isValid={isPdfFileValid}
+					accept='.pdf'
+					onChange={event => setPdfFile(event.target.files?.[0] || null)}
+				/>
+				{pdfFileBase64 && isPdfFileValid && (
+					<div className={styles.document_wrapper}>
+						<div className={styles.document}>
+							<Document
+								file={pdfFileBase64}
+								onLoadSuccess={onDocumentLoadSuccess}
+							>
+								<Page
+									renderAnnotationLayer={false}
+									renderTextLayer={false}
+									pageNumber={pageNumber}
+								/>
+							</Document>
+						</div>
+						{numPages && (
+							<div className={styles.document_wrapper_pages}>
+								<CaretLeft
+									onClick={() => {
+										if (pageNumber > 1) setPageNumber(pageNumber - 1)
+									}}
+									fill={pageNumber > 1}
+								/>
+								<p>
+									{pageNumber} of {numPages}
+								</p>
+								<CaretRight
+									onClick={() => {
+										if (pageNumber < numPages) setPageNumber(pageNumber + 1)
+									}}
+									fill={pageNumber < numPages}
+								/>
+							</div>
+						)}
+					</div>
+				)}
 				<span
 					className={clsx(styles.icon, {
-						[styles.icon_loading]: isLoading,
+						[styles.icon_active]: pdfFile && coverFile
+					})}
+				>
+					<Plus />
+				</span>
+				<File
+					ref={coverRef}
+					title='Cover'
+					Icon={FileCover}
+					selected={!!coverFile}
+					isValid={isCoverFileValid}
+					accept='.jpg, .jpeg, .png'
+					onChange={event => setCoverFile(event.target.files?.[0] || null)}
+				/>
+				{coverFileBase64 && isCoverFileValid && (
+					<div className={styles.image}>
+						<Image
+							src={coverFileBase64}
+							width={595}
+							height={595}
+							objectFit='cover'
+							alt='Cover Image'
+						/>
+					</div>
+				)}
+				<span
+					className={clsx(styles.icon, styles.download, {
+						[styles.download_loading]: isLoading,
 						[styles.icon_active]: !isLoading && pdfFile && coverFile
 					})}
 				>
 					<Arrow />
 				</span>
-				<div className={styles.download}>
-					<Download
-						downloadLink={downloadLink}
-						title='EPUB'
-						Icon={FileEPUB}
-						onBlur={() => {
-							setPdfFile(null)
-							setCoverFile(null)
-							setDownloadLink(null)
-						}}
-					/>
-				</div>
+				<Download
+					downloadLink={downloadLink}
+					title='EPUB'
+					Icon={FileEPUB}
+					onBlur={() => {
+						setPdfFile(null)
+						setPdfFileBase64(null)
+						setCoverFile(null)
+						setCoverFileBase64(null)
+						setDownloadLink(null)
+					}}
+				/>
 			</section>
 		</>
 	)

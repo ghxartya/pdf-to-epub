@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { BadRequestException, Injectable } from '@nestjs/common'
 import { PDFNet } from '@pdftron/pdfnet-node'
 import formidable from 'formidable'
@@ -14,7 +15,17 @@ export class ConvertService {
 
 		const { pdfFile, coverFile } = this.uploadFiles(files)
 
+		console.log('The PDF file has been uploaded:', pdfFile.path)
+		console.log('The Cover file has been uploaded:', coverFile.path)
+
 		const htmlFilepath = await this.convertPdfToHtml(pdfFile.name, pdfFile.path)
+
+		console.log(
+			'The HTML file has been uploaded:',
+			htmlFilepath,
+			'The original PDF file:',
+			pdfFile.path
+		)
 
 		const { options, downloadLink } = this.configureConvertToEpub(
 			htmlFilepath,
@@ -29,6 +40,8 @@ export class ConvertService {
 					else resolve()
 				})
 			})
+
+			console.log('The EPUB file has been received!', downloadLink)
 
 			return {
 				downloadLink
@@ -129,7 +142,7 @@ export class ConvertService {
 		try {
 			await PDFNet.runWithCleanup(convert, process.env.APRYSE_LICENSE_KEY)
 		} catch (error) {
-			throw new BadRequestException(`${error}`)
+			throw new BadRequestException('Failed to convert PDF to HTML.')
 		}
 
 		return htmlFilepath
@@ -146,13 +159,24 @@ export class ConvertService {
 			input: `"${htmlFilepath}"`,
 			output: `"${epubFilepath}"`,
 			cover: coverFilepath,
-			extraCss: `"*{color:#fff!important}"`,
-			pageBreaksBefore: '//h:h1',
-			chapter: '//h:h1',
+			baseFontSize: '7',
+			extraCss: '"*, *::after, *::before { color: white; font-size: 7pt; }"',
+			filterCss: 'color',
+			fontSizeMapping: '7,7,7,7,7,7,7,7',
 			insertBlankLine: true,
 			insertBlankLineSize: '1',
-			baseFontSize: '7',
-			lineHeight: '10'
+			lineHeight: '7.5',
+			marginBottom: '50',
+			marginLeft: '50',
+			marginRight: '50',
+			marginTop: '50',
+			minimumLineHeight: '152',
+			removeParagraphSpacing: true,
+			removeParagraphSpacingIndentSize: '1',
+			smartenPunctuation: true,
+			pageBreaksBefore: '//h:h1',
+			dontSplitOnPageBreaks: true,
+			prettyPrint: true
 		}
 
 		return {

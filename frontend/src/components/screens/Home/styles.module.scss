@@ -39,11 +39,30 @@
 	margin-bottom: 50px;
 }
 
-.files {
-	display: flex;
-	justify-content: center;
-	align-items: flex-end;
-	margin-bottom: 10px;
+.document_wrapper {
+	max-width: 100%;
+	margin-top: 15px;
+	color: $color-main;
+	font-size: $font_size-body;
+
+	&_pages {
+		width: 100%;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+
+		> p {
+			user-select: none;
+		}
+	}
+}
+
+.document {
+	overflow-x: auto;
+
+	&::-webkit-scrollbar {
+		display: none;
+	}
 }
 
 .icon {
@@ -52,17 +71,22 @@
 	align-items: center;
 	color: $color-main;
 
-	&_loading {
-		animation: LoadingAnimation 1s ease-in-out infinite;
-	}
-
 	&_active {
 		color: $color-accent;
 	}
 }
 
+.image {
+	margin-top: 15px;
+	display: flex;
+}
+
 .download {
-	margin-top: 20px;
+	margin: 20px 0;
+
+	&_loading {
+		animation: LoadingAnimation 1s ease-in-out infinite;
+	}
 }
 
 @media screen and (max-width: 672px) {
