@@ -51,6 +51,13 @@
 		justify-content: space-between;
 		align-items: center;
 
+		> div:first-child,
+		> div:last-child {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+		}
+
 		> p {
 			user-select: none;
 		}

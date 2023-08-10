@@ -17,7 +17,7 @@ export class ConvertService {
 
 		console.log('\n-------------------------------')
 		console.log('\nThe PDF file has been uploaded:', pdfFile.path)
-		console.log('The Cover file has been uploaded:', coverFile.path)
+		console.log('\nThe Cover file has been uploaded:', coverFile.path)
 
 		const htmlFilepath = await this.convertPdfToHtml(pdfFile.name, pdfFile.path)
 

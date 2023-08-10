@@ -141,6 +141,7 @@ const Home: FC = () => {
 								<Page
 									renderAnnotationLayer={false}
 									renderTextLayer={false}
+									width={595}
 									pageNumber={pageNumber}
 								/>
 							</Document>
@@ -188,7 +189,7 @@ const Home: FC = () => {
 							src={coverFileBase64}
 							width={595}
 							height={595}
-							objectFit='cover'
+							objectFit='contain'
 							alt='Cover Image'
 						/>
 					</div>
