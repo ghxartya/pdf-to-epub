@@ -15,17 +15,13 @@ export class ConvertService {
 
 		const { pdfFile, coverFile } = this.uploadFiles(files)
 
-		console.log('The PDF file has been uploaded:', pdfFile.path)
+		console.log('\n-------------------------------')
+		console.log('\nThe PDF file has been uploaded:', pdfFile.path)
 		console.log('The Cover file has been uploaded:', coverFile.path)
 
 		const htmlFilepath = await this.convertPdfToHtml(pdfFile.name, pdfFile.path)
 
-		console.log(
-			'The HTML file has been uploaded:',
-			htmlFilepath,
-			'The original PDF file:',
-			pdfFile.path
-		)
+		console.log('\nThe HTML file has been converted:', htmlFilepath)
 
 		const { options, downloadLink } = this.configureConvertToEpub(
 			htmlFilepath,
@@ -41,7 +37,7 @@ export class ConvertService {
 				})
 			})
 
-			console.log('The EPUB file has been received!', downloadLink)
+			console.log('\nThe EPUB file has been received:', `.${downloadLink}`)
 
 			return {
 				downloadLink
@@ -142,8 +138,11 @@ export class ConvertService {
 		try {
 			await PDFNet.runWithCleanup(convert, process.env.APRYSE_LICENSE_KEY)
 		} catch (error) {
-			throw new BadRequestException('Failed to convert PDF to HTML.')
+			throw new BadRequestException('Failed to start PDF to HTML conversion.')
 		}
+
+		if (!fs.existsSync(htmlFilepath))
+			throw new BadRequestException('Failed to convert PDF to HTML.')
 
 		return htmlFilepath
 	}
