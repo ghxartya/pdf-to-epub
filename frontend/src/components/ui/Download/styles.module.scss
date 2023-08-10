@@ -15,6 +15,7 @@
 }
 
 .title {
+	user-select: none;
 	color: $color-accent;
 	font-size: $font_size-body;
 }

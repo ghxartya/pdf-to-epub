@@ -15,13 +15,13 @@ export class ConvertService {
 
 		const { pdfFile, coverFile } = this.uploadFiles(files)
 
-		console.log('\n-------------------------------')
-		console.log('\nThe PDF file has been uploaded:', pdfFile.path)
-		console.log('\nThe Cover file has been uploaded:', coverFile.path)
+		console.log('-------------------------------')
+		console.log('The PDF file has been uploaded:', pdfFile.path)
+		console.log('The Cover file has been uploaded:', coverFile.path)
 
 		const htmlFilepath = await this.convertPdfToHtml(pdfFile.name, pdfFile.path)
 
-		console.log('\nThe HTML file has been converted:', htmlFilepath)
+		console.log('The HTML file has been converted:', htmlFilepath)
 
 		const { options, downloadLink } = this.configureConvertToEpub(
 			htmlFilepath,
@@ -37,7 +37,7 @@ export class ConvertService {
 				})
 			})
 
-			console.log('\nThe EPUB file has been received:', `.${downloadLink}`)
+			console.log('The EPUB file has been received:', `.${downloadLink}`)
 
 			return {
 				downloadLink

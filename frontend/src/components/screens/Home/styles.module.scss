@@ -33,6 +33,7 @@
 }
 
 .title {
+	user-select: none;
 	text-align: center;
 	color: $color-main;
 	font-size: $font_size-heading;
