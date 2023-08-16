@@ -24,7 +24,6 @@
 		"@nestjs/core": "^9.0.0",
 		"@nestjs/mapped-types": "*",
 		"@nestjs/platform-express": "^9.0.0",
-		"@pdftron/pdfnet-node": "^10.3.0",
 		"ebook-convert": "^2.0.1",
 		"formidable": "^3.5.0",
 		"reflect-metadata": "^0.1.13",

@@ -1,6 +1,5 @@
 /* eslint-disable no-console */
 import { BadRequestException, Injectable } from '@nestjs/common'
-import { PDFNet } from '@pdftron/pdfnet-node'
 import formidable from 'formidable'
 import { IncomingMessage } from 'http'
 import convert = require('ebook-convert')
@@ -116,31 +115,6 @@ export class ConvertService {
 
 		const htmlFilepath = `${this.uploadsDirpath}/html/${pdfFilename}.html`
 
-		async function convert() {
-			await PDFNet.addResourceSearchPath('./')
-
-			if (!(await PDFNet.StructuredOutputModule.isModuleAvailable())) return
-
-			const htmlOutputOptions = new PDFNet.Convert.HTMLOutputOptions()
-
-			htmlOutputOptions.setContentReflowSetting(
-				PDFNet.Convert.HTMLOutputOptions.ContentReflowSetting.e_reflow_full
-			)
-			htmlOutputOptions.setEmbedImages(true)
-
-			await PDFNet.Convert.fileToHtml(
-				pdfFilepath,
-				htmlFilepath,
-				htmlOutputOptions
-			)
-		}
-
-		try {
-			await PDFNet.runWithCleanup(convert, process.env.APRYSE_LICENSE_KEY)
-		} catch (error) {
-			throw new BadRequestException('Failed to start PDF to HTML conversion.')
-		}
-
 		if (!fs.existsSync(htmlFilepath))
 			throw new BadRequestException('Failed to convert PDF to HTML.')
 
@@ -158,13 +132,13 @@ export class ConvertService {
 			input: `"${htmlFilepath}"`,
 			output: `"${epubFilepath}"`,
 			cover: coverFilepath,
-			baseFontSize: '7',
-			extraCss: '"*, *::after, *::before { color: white; font-size: 7pt; }"',
+			baseFontSize: '10',
+			extraCss: '"*, *::after, *::before { color: white; font-size: 10pt; }"',
 			filterCss: 'color',
-			fontSizeMapping: '7,7,7,7,7,7,7,7',
+			fontSizeMapping: '10,10,10,10,10,10,10,10',
 			insertBlankLine: true,
 			insertBlankLineSize: '1',
-			lineHeight: '7.5',
+			lineHeight: '12',
 			marginBottom: '50',
 			marginLeft: '50',
 			marginRight: '50',
